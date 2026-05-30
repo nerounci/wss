@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: wss-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wss_user
+      POSTGRES_PASSWORD: wss_pass
+      POSTGRES_DB: wss_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: wss-backend
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql+asyncpg://wss_user:wss_pass@db:5432/wss_db
+      SECRET_KEY: supersecretkeychangeinproduction
+      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build: ./frontend
+    container_name: wss-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+volumes:
+  pgdata:
