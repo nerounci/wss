@@ -1,6 +1,5 @@
-
 import { useEffect, useState } from 'react'
-import { Table, DatePicker, Input, Space } from 'antd'
+import { Table, DatePicker, Input, Space, Row, Col, Grid } from 'antd'
 import { api } from '../api/client'
 import dayjs from 'dayjs'
 
@@ -11,6 +10,8 @@ const Movements: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null)
   const [eqId, setEqId] = useState('')
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
 
   const fetch = async () => {
     setLoading(true)
@@ -28,22 +29,22 @@ const Movements: React.FC = () => {
   useEffect(() => { fetch() }, [dateRange, eqId])
 
   const columns = [
-    { title: 'Оборудование', dataIndex: ['equipment', 'name'] },
-    { title: 'Штрихкод', dataIndex: ['equipment', 'barcode'] },
+    { title: 'Оборудование', dataIndex: ['equipment', 'name'], responsive: ['sm'] },
+    { title: 'Штрихкод', dataIndex: ['equipment', 'barcode'], responsive: ['md'] },
     { title: 'Откуда', dataIndex: ['from_warehouse', 'name'] },
     { title: 'Куда', dataIndex: ['to_warehouse', 'name'] },
-    { title: 'Дата', dataIndex: 'timestamp', render: (t: string) => new Date(t).toLocaleString() },
-    { title: 'Пользователь', dataIndex: ['user', 'username'] },
-    { title: 'Комментарий', dataIndex: 'comment' },
+    { title: 'Дата', dataIndex: 'timestamp', render: (t: string) => new Date(t).toLocaleString(), responsive: ['md'] },
+    { title: 'Пользователь', dataIndex: ['user', 'username'], responsive: ['sm'] },
+    { title: 'Комментарий', dataIndex: 'comment', responsive: ['md'] },
   ]
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
-        <RangePicker onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)} />
-        <Input placeholder="ID оборудования" value={eqId} onChange={e => setEqId(e.target.value)} />
+      <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ marginBottom: 16, width: '100%' }}>
+        <RangePicker onChange={(dates) => setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs] | null)} style={{ width: isMobile ? '100%' : undefined }} />
+        <Input placeholder="ID оборудования" value={eqId} onChange={e => setEqId(e.target.value)} style={{ width: isMobile ? '100%' : 200 }} />
       </Space>
-      <Table columns={columns} dataSource={data} rowKey="id" loading={loading} />
+      <Table columns={columns} dataSource={data} rowKey="id" loading={loading} scroll={{ x: true }} size={isMobile ? 'small' : 'middle'} />
     </div>
   )
 }

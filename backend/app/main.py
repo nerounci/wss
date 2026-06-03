@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base, async_session
 from app.crud import init_roles, init_admin
-from app.api import auth, equipment, warehouses, movements, logs
+from app.api import auth, equipment, warehouses, movements, logs, import_xlsx
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,3 +30,4 @@ app.include_router(equipment.router)
 app.include_router(warehouses.router)
 app.include_router(movements.router)
 app.include_router(logs.router)
+app.include_router(import_xlsx.router)
