@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Descriptions, Button, Space, Select, Input, Table, Tag, message, Card, Typography } from 'antd'
+import { Descriptions, Button, Space, Select, Input, Table, Tag, message, Card, Grid } from 'antd'
 import { ArrowLeftOutlined, SwapOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 
-const statusOptions = [
-  'Рабочий', 'Требует ремонта', 'В ремонте', 'На складе', 'Выдан', 'Списан'
-]
+const statusOptions = ['Рабочий', 'Требует ремонта', 'В ремонте', 'На складе', 'Выдан', 'Списан']
 
 interface Equipment {
   id: number
@@ -30,13 +28,24 @@ const EquipmentDetail: React.FC = () => {
   const [moveTo, setMoveTo] = useState<number | undefined>(undefined)
   const [moveComment, setMoveComment] = useState('')
   const [statusComment, setStatusComment] = useState('')
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
 
   useEffect(() => {
-    if (!id) return
-    api.get(`/api/equipment/${id}`).then(res => setEquipment(res.data))
-    api.get(`/api/equipment/${id}/status-history`).then(res => setStatusHistory(res.data))
+    // Если id == "new" — перенаправляем на форму создания
+    if (!id || id === 'new') {
+      navigate('/equipment/new', { replace: true })
+      return
+    }
+    const numId = Number(id)
+    if (isNaN(numId)) {
+      navigate('/equipment', { replace: true })
+      return
+    }
+    api.get(`/api/equipment/${numId}`).then(res => setEquipment(res.data))
+    api.get(`/api/equipment/${numId}/status-history`).then(res => setStatusHistory(res.data))
     api.get('/api/warehouses/').then(res => setWarehouses(res.data))
-  }, [id])
+  }, [id, navigate])
 
   const handleStatusChange = async (newStatus: string) => {
     try {
@@ -87,13 +96,13 @@ const EquipmentDetail: React.FC = () => {
     <div>
       <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/equipment')}>Назад к списку</Button>
       <Card style={{ marginTop: 16 }}>
-        <Descriptions title={`Оборудование #${equipment.id}`} bordered>
-          <Descriptions.Item label="Штрихкод">{equipment.barcode}</Descriptions.Item>
+        <Descriptions title={`Оборудование #${equipment.id}`} bordered column={isMobile ? 1 : 2} layout={isMobile ? 'vertical' : 'horizontal'}>
+          <Descriptions.Item label="Штрихкод">{equipment.barcode || '—'}</Descriptions.Item>
           <Descriptions.Item label="Наименование">{equipment.name}</Descriptions.Item>
-          <Descriptions.Item label="Категория">{equipment.category}</Descriptions.Item>
-          <Descriptions.Item label="Серийный номер">{equipment.serial_number}</Descriptions.Item>
-          <Descriptions.Item label="Инвентарный номер">{equipment.inventory_number}</Descriptions.Item>
-          <Descriptions.Item label="Описание">{equipment.description}</Descriptions.Item>
+          <Descriptions.Item label="Категория">{equipment.category || '—'}</Descriptions.Item>
+          <Descriptions.Item label="Серийный номер">{equipment.serial_number || '—'}</Descriptions.Item>
+          <Descriptions.Item label="Инвентарный номер">{equipment.inventory_number || '—'}</Descriptions.Item>
+          <Descriptions.Item label="Описание">{equipment.description || '—'}</Descriptions.Item>
           <Descriptions.Item label="Статус">
             <Tag color={statusColor(equipment.current_status)}>{equipment.current_status}</Tag>
           </Descriptions.Item>
@@ -102,48 +111,27 @@ const EquipmentDetail: React.FC = () => {
           </Descriptions.Item>
         </Descriptions>
       </Card>
-
       <Card title="Изменить статус" style={{ marginTop: 16 }}>
-        <Space>
-          <Select
-            style={{ width: 200 }}
-            value={undefined}
-            placeholder="Выберите новый статус"
-            onChange={(val) => handleStatusChange(val)}
-            options={statusOptions.map(s => ({ value: s, label: s }))}
-          />
+        <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+          <Select style={{ width: isMobile ? '100%' : 200 }} value={undefined} placeholder="Выберите новый статус" onChange={(val) => handleStatusChange(val)} options={statusOptions.map(s => ({ value: s, label: s }))} />
           <Input placeholder="Комментарий" value={statusComment} onChange={e => setStatusComment(e.target.value)} />
         </Space>
       </Card>
-
       <Card title="Переместить на другой склад" style={{ marginTop: 16 }}>
-        <Space>
-          <Select
-            style={{ width: 300 }}
-            placeholder="Выберите склад"
-            value={moveTo}
-            onChange={setMoveTo}
-            options={warehouses
-              .filter(w => w.id !== equipment.current_warehouse_id)
-              .map(w => ({ value: w.id, label: w.name }))}
-          />
+        <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+          <Select style={{ width: isMobile ? '100%' : 300 }} placeholder="Выберите склад" value={moveTo} onChange={setMoveTo} options={warehouses.filter(w => w.id !== equipment.current_warehouse_id).map(w => ({ value: w.id, label: w.name }))} />
           <Input placeholder="Комментарий" value={moveComment} onChange={e => setMoveComment(e.target.value)} />
           <Button type="primary" icon={<SwapOutlined />} onClick={handleMove}>Переместить</Button>
         </Space>
       </Card>
-
       <Card title="История статусов" style={{ marginTop: 16 }}>
-        <Table
-          dataSource={statusHistory}
-          rowKey="id"
-          columns={[
-            { title: 'Дата', dataIndex: 'timestamp', render: (t: string) => new Date(t).toLocaleString() },
-            { title: 'Старый статус', dataIndex: 'old_status', render: (s: string) => s ? <Tag>{s}</Tag> : '-' },
-            { title: 'Новый статус', dataIndex: 'new_status', render: (s: string) => <Tag color={statusColor(s)}>{s}</Tag> },
-            { title: 'Комментарий', dataIndex: 'comment' },
-            { title: 'Пользователь', dataIndex: ['changed_by', 'username'] },
-          ]}
-        />
+        <Table dataSource={statusHistory} rowKey="id" scroll={{ x: true }} size={isMobile ? 'small' : 'middle'} columns={[
+          { title: 'Дата', dataIndex: 'timestamp', render: (t: string) => new Date(t).toLocaleString() },
+          { title: 'Старый статус', dataIndex: 'old_status', render: (s: string) => s ? <Tag>{s}</Tag> : '—' },
+          { title: 'Новый статус', dataIndex: 'new_status', render: (s: string) => <Tag color={statusColor(s)}>{s}</Tag> },
+          { title: 'Комментарий', dataIndex: 'comment', responsive: ['md'] },
+          { title: 'Пользователь', dataIndex: ['changed_by', 'username'], responsive: ['sm'] },
+        ]} />
       </Card>
     </div>
   )

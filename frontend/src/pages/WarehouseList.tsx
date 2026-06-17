@@ -1,6 +1,5 @@
-
 import { useEffect, useState } from 'react'
-import { Button, Table, Space, Modal, Input, Form, message } from 'antd'
+import { Button, Table, Space, Modal, Input, Form, message, Row, Col, Grid } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +18,8 @@ const WarehouseList: React.FC = () => {
   const [editing, setEditing] = useState<Warehouse | null>(null)
   const [form] = Form.useForm()
   const navigate = useNavigate()
+  const screens = Grid.useBreakpoint()
+  const isMobile = !screens.md
 
   const fetch = async () => {
     setLoading(true)
@@ -52,10 +53,10 @@ const WarehouseList: React.FC = () => {
 
   const columns = [
     { title: 'Название', dataIndex: 'name', key: 'name', render: (text: string, record: Warehouse) => <a onClick={() => navigate(`/warehouses/${record.id}`)}>{text}</a> },
-    { title: 'Адрес', dataIndex: 'address', key: 'address' },
-    { title: 'Описание', dataIndex: 'description', key: 'description' },
+    { title: 'Адрес', dataIndex: 'address', key: 'address', responsive: ['sm'] },
+    { title: 'Описание', dataIndex: 'description', key: 'description', responsive: ['md'] },
     {
-      title: 'Действия',
+      title: '',
       key: 'actions',
       render: (_: any, record: Warehouse) => (
         <Space>
@@ -68,10 +69,21 @@ const WarehouseList: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); setModalVisible(true) }}>Добавить склад</Button>
-      </div>
-      <Table columns={columns} dataSource={data} rowKey="id" loading={loading} />
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+        <Col>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); setModalVisible(true) }}>
+            Добавить склад
+          </Button>
+        </Col>
+      </Row>
+      <Table
+        columns={columns}
+        dataSource={data}
+        rowKey="id"
+        loading={loading}
+        scroll={{ x: true }}
+        size={isMobile ? 'small' : 'middle'}
+      />
       <Modal
         title={editing ? 'Редактировать склад' : 'Новый склад'}
         open={modalVisible}
