@@ -33,10 +33,10 @@ const EquipmentDetail: React.FC = () => {
 
   useEffect(() => {
     // Если id == "new" — перенаправляем на форму создания
-    if (!id || id === 'new') {
-      navigate('/equipment/new', { replace: true })
-      return
-    }
+    // if (!id || id === 'new') {
+    //   navigate('/equipment/new', { replace: true })
+    //   return
+    // }
     const numId = Number(id)
     if (isNaN(numId)) {
       navigate('/equipment', { replace: true })

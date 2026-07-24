@@ -16,6 +16,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import EquipmentList from './pages/EquipmentList'
 import EquipmentDetail from './pages/EquipmentDetail'
+import EquipmentCreate from './pages/EquipmentCreate'
 import WarehouseList from './pages/WarehouseList'
 import WarehouseDetail from './pages/WarehouseDetail'
 import Movements from './pages/Movements'
@@ -124,6 +125,7 @@ const AppLayout: React.FC = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/equipment" element={<EquipmentList />} />
+            <Route path="/equipment/new" element={<EquipmentCreate />} />
             <Route path="/equipment/:id" element={<EquipmentDetail />} />
             <Route path="/warehouses" element={<WarehouseList />} />
             <Route path="/warehouses/:id" element={<WarehouseDetail />} />
