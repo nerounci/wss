@@ -3,6 +3,7 @@ from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from datetime import datetime
+import secrets
 
 from app.models import User, Role, Equipment, Warehouse, Movement, StatusHistory, OperationLog, EquipmentStatus
 from app.schemas import UserCreate, EquipmentCreate, EquipmentUpdate, WarehouseCreate, WarehouseUpdate, MovementCreate
@@ -39,7 +40,16 @@ async def init_admin(db: AsyncSession):
     admin_role = admin_role.scalar_one()
     admin_user = await get_user_by_username(db, "admin")
     if not admin_user:
-        await create_user(db, UserCreate(username="admin", password="admin", full_name="Administrator", role_id=admin_role.id))
+        generated_password = secrets.token_urlsafe(12)
+        await create_user(db, UserCreate(username="admin", password=generated_password, full_name="Administrator", role_id=admin_role.id))
+        print("Создан первичный администратор: admin")
+        print(f"Пароль (сохраните и смените после первого входа): {generated_password}")
+
+async def get_users(db: AsyncSession, skip=0, limit=100):
+    result = await db.execute(
+        select(User).options(selectinload(User.role)).offset(skip).limit(limit).order_by(User.id)
+    )
+    return result.scalars().all()
 
 async def create_equipment(db: AsyncSession, equipment: EquipmentCreate):
     db_eq = Equipment(**equipment.model_dump())

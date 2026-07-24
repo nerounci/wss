@@ -10,7 +10,8 @@ import {
   FileTextOutlined,
   ScanOutlined,
   LogoutOutlined,
-  MenuOutlined
+  MenuOutlined,
+  TeamOutlined
 } from '@ant-design/icons'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -21,6 +22,7 @@ import WarehouseList from './pages/WarehouseList'
 import WarehouseDetail from './pages/WarehouseDetail'
 import Movements from './pages/Movements'
 import Logs from './pages/Logs'
+import Users from './pages/Users'
 import Scan from './pages/Scan'
 
 const { Header, Content } = Layout
@@ -53,6 +55,7 @@ const AppLayout: React.FC = () => {
     { key: '/movements', icon: <SwapOutlined />, label: 'Перемещения' },
     { key: '/scan', icon: <ScanOutlined />, label: 'Сканер' },
     ...(isAdmin ? [{ key: '/logs', icon: <FileTextOutlined />, label: 'Журнал' }] : []),
+    ...(isAdmin ? [{ key: '/users', icon: <TeamOutlined />, label: 'Пользователи' }] : []),
   ]
 
   const handleMenuClick = (key: string) => {
@@ -132,6 +135,7 @@ const AppLayout: React.FC = () => {
             <Route path="/movements" element={<Movements />} />
             <Route path="/scan" element={<Scan />} />
             <Route path="/logs" element={<AdminRoute><Logs /></AdminRoute>} />
+            <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
           </Routes>
         </Content>
       </Layout>

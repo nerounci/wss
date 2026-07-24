@@ -4,9 +4,14 @@ from app.database import get_db
 from app.auth import get_current_admin
 from app.models import Equipment, EquipmentStatus, Warehouse, User
 from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 import io
+import zipfile
 
 router = APIRouter(prefix="/api/import", tags=["import"])
+
+MAX_FILE_SIZE = 100 * 1024 * 1024
+MAX_ROWS = 5000
 
 REQUIRED_HEADERS = [
     "Штрихкод", "Наименование", "Категория", "Серийный номер",
@@ -30,10 +35,19 @@ async def import_from_xlsx(
 ):
     if not file.filename.endswith('.xlsx'):
         raise HTTPException(400, "Файл должен быть в формате .xlsx")
-    
+
     contents = await file.read()
-    wb = load_workbook(io.BytesIO(contents))
-    ws = wb.active
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(400, f"Файл слишком большой (максимум {MAX_FILE_SIZE // (1024 * 1024)} МБ)")
+
+    try:
+        wb = load_workbook(io.BytesIO(contents), read_only=True, data_only=True)
+        ws = wb.active
+    except (InvalidFileException, zipfile.BadZipFile, KeyError):
+        raise HTTPException(400, "Не удалось прочитать файл — проверьте, что это корректный .xlsx")
+
+    if ws.max_row and ws.max_row - 1 > MAX_ROWS:
+        raise HTTPException(400, f"Слишком много строк в файле (максимум {MAX_ROWS})")
 
     # Проверяем заголовки
     headers = [cell.value for cell in ws[1]]

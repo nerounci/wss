@@ -1,8 +1,12 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from app.database import engine, Base, async_session
 from app.crud import init_roles, init_admin
+from app.config import get_settings
+from app.limiter import limiter
 from app.api import auth, equipment, warehouses, movements, logs, import_xlsx
 
 @asynccontextmanager
@@ -17,9 +21,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Warehouse Storage System", version="1.0.0", lifespan=lifespan)
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
