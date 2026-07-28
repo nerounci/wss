@@ -29,6 +29,7 @@ const Scan: React.FC = () => {
       if (res.data.length > 0) {
         setScannedEquipment(res.data[0])
         message.success(`Найдено: ${res.data[0].name}`)
+        navigate(`/equipment/${res.data[0].id}`)
       } else {
         setScannedEquipment(null)
         message.warning('Оборудование не найдено')

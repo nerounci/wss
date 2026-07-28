@@ -10,6 +10,8 @@ interface Equipment {
   barcode: string
   name: string
   category: string
+  quantity: number
+  minimum_quantity: number
   current_status: string
   warehouse?: { name: string }
 }
@@ -42,6 +44,7 @@ const EquipmentList: React.FC = () => {
     { title: 'Штрихкод', dataIndex: 'barcode', key: 'barcode', responsive: ['sm'] },
     { title: 'Наименование', dataIndex: 'name', key: 'name', render: (text, record) => <a onClick={() => navigate(`/equipment/${record.id}`)}>{text}</a> },
     { title: 'Категория', dataIndex: 'category', key: 'category', responsive: ['md'] },
+    { title: 'Остаток', key: 'quantity', render: (_, record) => <Tag color={record.quantity <= record.minimum_quantity ? 'red' : 'green'}>{record.quantity}</Tag> },
     { title: 'Статус', dataIndex: 'current_status', key: 'status', render: (status: string) => {
       const color = status === 'Рабочий' ? 'green' : status === 'Выдан' ? 'blue' : status === 'На складе' ? 'cyan' : 'red'
       return <Tag color={color}>{status}</Tag>

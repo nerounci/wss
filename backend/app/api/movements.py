@@ -4,8 +4,8 @@ from typing import List, Optional
 from datetime import datetime
 
 from app.database import get_db
-from app.schemas import MovementCreate, MovementRead
-from app.crud import create_movement, get_movements
+from app.schemas import MovementCreate, MovementRead, MovementBatchCreate
+from app.crud import create_movement, create_batch_movement, get_movements
 from app.auth import get_current_user
 from app.models import User
 
@@ -16,6 +16,15 @@ async def new_movement(movement: MovementCreate, db: AsyncSession = Depends(get_
     move, error = await create_movement(db, movement, current_user.id)
     if error: raise HTTPException(status_code=400, detail=error)
     return move
+
+@router.post("/batch")
+async def new_batch_movement(movement: MovementBatchCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    moved_count, error = await create_batch_movement(
+        db, movement.equipment_ids, movement.to_warehouse_id, movement.comment, current_user.id
+    )
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return {"moved_count": moved_count}
 
 @router.get("/", response_model=List[MovementRead])
 async def list_movements(equipment_id: Optional[int] = None, user_id: Optional[int] = None,

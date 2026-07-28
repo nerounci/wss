@@ -26,7 +26,7 @@ const WarehouseDetail: React.FC = () => {
         <Descriptions.Item label="Адрес">{warehouse.address}</Descriptions.Item>
         <Descriptions.Item label="Описание">{warehouse.description}</Descriptions.Item>
       </Descriptions>
-      <Card title="Оборудование на складе" style={{ marginTop: 16 }}>
+      <Card title="Оборудование в этом месте" style={{ marginTop: 16 }}>
         <Table
           dataSource={equipment}
           rowKey="id"

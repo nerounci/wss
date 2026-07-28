@@ -9,6 +9,11 @@ api.interceptors.request.use(config => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  // Axios сам установит boundary для FormData.
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type']
+    return config
+  }
   // Если данные — URLSearchParams, устанавливаем заголовок явно
   if (config.data instanceof URLSearchParams) {
     config.headers['Content-Type'] = 'application/x-www-form-urlencoded'
