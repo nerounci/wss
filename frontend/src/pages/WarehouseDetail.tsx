@@ -33,7 +33,7 @@ const WarehouseDetail: React.FC = () => {
           scroll={{ x: true }}
           size={isMobile ? 'small' : 'middle'}
           columns={[
-            { title: 'Штрихкод', dataIndex: 'barcode', responsive: ['sm'] },
+            { title: 'QR-код', dataIndex: 'barcode', responsive: ['sm'] },
             { title: 'Наименование', dataIndex: 'name' },
             { title: 'Статус', dataIndex: 'current_status' }
           ]}

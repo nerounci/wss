@@ -41,7 +41,7 @@ const EquipmentList: React.FC = () => {
   useEffect(() => { fetchData() }, [search, statusFilter])
 
   const columns: ColumnsType<Equipment> = [
-    { title: 'Штрихкод', dataIndex: 'barcode', key: 'barcode', responsive: ['sm'] },
+    { title: 'QR-код', dataIndex: 'barcode', key: 'barcode', responsive: ['sm'] },
     { title: 'Наименование', dataIndex: 'name', key: 'name', render: (text, record) => <a onClick={() => navigate(`/equipment/${record.id}`)}>{text}</a> },
     { title: 'Категория', dataIndex: 'category', key: 'category', responsive: ['md'] },
     { title: 'Остаток', key: 'quantity', render: (_, record) => <Tag color={record.quantity <= record.minimum_quantity ? 'red' : 'green'}>{record.quantity}</Tag> },

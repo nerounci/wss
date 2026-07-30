@@ -154,7 +154,7 @@ const EquipmentDetail: React.FC = () => {
       <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/equipment')}>Назад к списку</Button>
       <Card style={{ marginTop: 16 }}>
         <Descriptions title={`Оборудование #${equipment.id}`} bordered column={isMobile ? 1 : 2} layout={isMobile ? 'vertical' : 'horizontal'}>
-          <Descriptions.Item label="Штрихкод">{equipment.barcode || '—'}</Descriptions.Item>
+          <Descriptions.Item label="QR-код">{equipment.barcode || '—'}</Descriptions.Item>
           <Descriptions.Item label="Наименование">{equipment.name}</Descriptions.Item>
           <Descriptions.Item label="Категория">{equipment.category || '—'}</Descriptions.Item>
           <Descriptions.Item label="Тип техники">{equipment.equipment_type || '—'}</Descriptions.Item>
