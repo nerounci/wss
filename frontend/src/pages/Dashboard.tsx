@@ -37,7 +37,7 @@ const actionLabels: Record<string, string> = {
 }
 
 const Dashboard: React.FC = () => {
-  const [data, setData] = useState<DashboardData | null>(null)
+  const [data, setData] = useState<DashboardData | nusll>(null)
   const screens = useBreakpoint()
   const isMobile = !screens.md
 

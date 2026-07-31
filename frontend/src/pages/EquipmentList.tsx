@@ -49,7 +49,7 @@ const EquipmentList: React.FC = () => {
       const color = status === 'Рабочий' ? 'green' : status === 'Выдан' ? 'blue' : status === 'На складе' ? 'cyan' : 'red'
       return <Tag color={color}>{status}</Tag>
     }},
-    { title: 'Склад', dataIndex: ['warehouse', 'name'], key: 'warehouse', responsive: ['sm'] },
+    { title: 'Помещение', dataIndex: ['warehouse', 'name'], key: 'warehouse', responsive: ['sm'] },
     {
       title: '',
       key: 'actions',
@@ -78,7 +78,7 @@ const EquipmentList: React.FC = () => {
           { value: 'В ремонте', label: 'В ремонте' },
           { value: 'На складе', label: 'На складе' },
           { value: 'Выдан', label: 'Выдан' },
-          { value: 'Списан', label: 'Списан' },
+          { value: 'На списание', label: 'На списание' },
         ]}
       />
     </Space>

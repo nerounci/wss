@@ -5,7 +5,7 @@ import { ArrowLeftOutlined, SwapOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
-const statusOptions = ['Рабочий', 'Требует ремонта', 'В ремонте', 'На складе', 'Выдан', 'Списан']
+const statusOptions = ['Рабочий', 'Требует ремонта', 'В ремонте', 'На складе', 'Выдан', 'На списание']
 const equipmentTypeOptions = [
   { value: 'computer', label: 'Компьютер' },
   { value: 'printer', label: 'Принтер' },

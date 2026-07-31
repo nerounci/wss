@@ -18,7 +18,7 @@ async def new_movement(movement: MovementCreate, db: AsyncSession = Depends(get_
     return move
 
 @router.post("/batch")
-async def new_batch_movement(movement: MovementBatchCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def new_batch_movement(movement: MovementBatchCreate, current_user: User = Depends(get_current_user)):
     moved_count, error = await create_batch_movement(
         db, movement.equipment_ids, movement.to_warehouse_id, movement.comment, current_user.id
     )

@@ -13,7 +13,7 @@ class EquipmentStatusEnum(str, Enum):
     IN_REPAIR = "В ремонте"
     IN_WAREHOUSE = "На складе"
     ISSUED = "Выдан"
-    DECOMMISSIONED = "Списан"
+    DECOMMISSIONED = "На списание"
 
 class RoleRead(BaseModel):
     id: int

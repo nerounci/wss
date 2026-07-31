@@ -15,7 +15,7 @@ class EquipmentStatus(str, enum.Enum):
     IN_REPAIR = "В ремонте"
     IN_WAREHOUSE = "На складе"
     ISSUED = "Выдан"
-    DECOMMISSIONED = "Списан"
+    DECOMMISSIONED = "На списание"
 
 class Role(Base):
     __tablename__ = "roles"
