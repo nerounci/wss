@@ -7,7 +7,7 @@ from openpyxl import load_workbook
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_admin
+from app.auth import require_page
 from app.database import get_db
 from app.models import Equipment, EquipmentStatus, OperationLog, User, Warehouse
 
@@ -100,7 +100,7 @@ async def duplicate_exists(db: AsyncSession, serial_number: str | None, inventor
 async def import_from_xlsx(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(require_page("import")),
 ):
     if not file.filename or not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(400, "Файл должен быть в формате .xlsx")
@@ -192,7 +192,7 @@ async def import_from_xlsx(
                     action="import",
                     object_type="equipment",
                     object_id=equipment.id,
-                    details=f"Imported from Excel: {equipment.name}",
+                    details=f"Импортировано из Excel: {equipment.name}",
                 ))
                 imported += 1
             except Exception as error:

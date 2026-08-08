@@ -6,8 +6,8 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 import secrets
 
-from app.models import User, Role, Equipment, Warehouse, Movement, StatusHistory, OperationLog, EquipmentStatus
-from app.schemas import UserCreate, EquipmentCreate, EquipmentUpdate, WarehouseCreate, WarehouseUpdate, MovementCreate
+from app.models import User, Role, Equipment, Warehouse, Movement, StatusHistory, OperationLog, EquipmentStatus, PagePermission
+from app.schemas import UserCreate, UserUpdate, EquipmentCreate, EquipmentUpdate, WarehouseCreate, WarehouseUpdate, MovementCreate
 from app.auth import get_password_hash
 
 async def create_user(db: AsyncSession, user: UserCreate):
@@ -32,25 +32,64 @@ async def get_roles(db: AsyncSession):
 
 async def init_roles(db: AsyncSession):
     roles = await get_roles(db)
-    if not roles:
-        db.add_all([Role(name="admin"), Role(name="employee")])
+    existing_names = {r.name for r in roles}
+    missing = [name for name in ("owner", "admin", "employee") if name not in existing_names]
+    if missing:
+        db.add_all([Role(name=name) for name in missing])
         await db.commit()
 
 async def init_admin(db: AsyncSession):
-    admin_role = await db.execute(select(Role).where(Role.name == "admin"))
-    admin_role = admin_role.scalar_one()
+    owner_role = (await db.execute(select(Role).where(Role.name == "owner"))).scalar_one()
     admin_user = await get_user_by_username(db, "admin")
     if not admin_user:
         generated_password = secrets.token_urlsafe(12)
-        await create_user(db, UserCreate(username="admin", password=generated_password, full_name="Administrator", role_id=admin_role.id))
-        print("Создан первичный администратор: admin")
+        await create_user(db, UserCreate(username="admin", password=generated_password, full_name="Administrator", role_id=owner_role.id))
+        print("Создан первичный администратор (владелец): admin")
         print(f"Пароль (сохраните и смените после первого входа): {generated_password}")
+        return
+    
+    owner_exists = (await db.execute(select(User).where(User.role_id == owner_role.id))).scalar_one_or_none()
+    if not owner_exists and admin_user.role_id != owner_role.id:
+        admin_user.role_id = owner_role.id
+        await db.commit()
+        print(f"Пользователь '{admin_user.username}' повышен до владельца (owner)")
 
 async def get_users(db: AsyncSession, skip=0, limit=100):
     result = await db.execute(
         select(User).options(selectinload(User.role)).offset(skip).limit(limit).order_by(User.id)
     )
     return result.scalars().all()
+
+async def get_user_by_id(db: AsyncSession, user_id: int):
+    result = await db.execute(
+        select(User).where(User.id == user_id).options(selectinload(User.role))
+    )
+    return result.scalar_one_or_none()
+
+async def update_user(db: AsyncSession, user_id: int, updates: UserUpdate):
+    user = await get_user_by_id(db, user_id)
+    if not user: return None
+    for field, value in updates.model_dump(exclude_unset=True).items():
+        setattr(user, field, value)
+    await db.commit()
+    return await get_user_by_id(db, user_id)
+
+async def set_user_permission(db: AsyncSession, user_id: int, page_key: str, allowed: bool):
+    result = await db.execute(
+        select(PagePermission).where(PagePermission.user_id == user_id, PagePermission.page_key == page_key)
+    )
+    override = result.scalar_one_or_none()
+    if override:
+        override.allowed = allowed
+    else:
+        db.add(PagePermission(user_id=user_id, page_key=page_key, allowed=allowed))
+    await db.commit()
+
+async def clear_user_permission(db: AsyncSession, user_id: int, page_key: str):
+    await db.execute(
+        delete(PagePermission).where(PagePermission.user_id == user_id, PagePermission.page_key == page_key)
+    )
+    await db.commit()
 
 async def create_equipment(db: AsyncSession, equipment: EquipmentCreate, user_id: int):
     equipment_data = equipment.model_dump()
@@ -59,7 +98,7 @@ async def create_equipment(db: AsyncSession, equipment: EquipmentCreate, user_id
     db_eq = Equipment(**equipment_data)
     db.add(db_eq)
     await db.flush()
-    db.add(OperationLog(user_id=user_id, action="create", object_type="equipment", object_id=db_eq.id, details=f"Created equipment: {db_eq.name}"))
+    db.add(OperationLog(user_id=user_id, action="create", object_type="equipment", object_id=db_eq.id, details=f"Добавлено оборудование: {db_eq.name}"))
     await db.commit()
     return await get_equipment_by_id(db, db_eq.id)
 
@@ -87,19 +126,32 @@ async def update_equipment(db: AsyncSession, eq_id: int, updates: EquipmentUpdat
     if not eq: return None
     for field, value in updates.model_dump(exclude_unset=True).items():
         setattr(eq, field, value)
-    db.add(OperationLog(user_id=user_id, action="update", object_type="equipment", object_id=eq.id, details=f"Updated equipment: {eq.name}"))
+    db.add(OperationLog(user_id=user_id, action="update", object_type="equipment", object_id=eq.id, details=f"Изменено оборудование: {eq.name}"))
     await db.commit()
     return await get_equipment_by_id(db, eq_id)
 
 async def delete_equipment(db: AsyncSession, eq_id: int, user_id: int):
     eq = await get_equipment_by_id(db, eq_id)
     if eq:
-        db.add(OperationLog(user_id=user_id, action="delete", object_type="equipment", object_id=eq.id, details=f"Deleted equipment: {eq.name}"))
+        db.add(OperationLog(user_id=user_id, action="delete", object_type="equipment", object_id=eq.id, details=f"Удалено оборудование: {eq.name}"))
         await db.execute(delete(StatusHistory).where(StatusHistory.equipment_id == eq.id))
         await db.execute(delete(Movement).where(Movement.equipment_id == eq.id))
         await db.delete(eq)
         await db.commit()
     return eq
+
+async def delete_equipment_batch(db: AsyncSession, eq_ids: List[int], user_id: int):
+    result = await db.execute(select(Equipment).where(Equipment.id.in_(eq_ids)))
+    items = result.scalars().all()
+    deleted = 0
+    for eq in items:
+        db.add(OperationLog(user_id=user_id, action="delete", object_type="equipment", object_id=eq.id, details=f"Удалено оборудование: {eq.name}"))
+        await db.execute(delete(StatusHistory).where(StatusHistory.equipment_id == eq.id))
+        await db.execute(delete(Movement).where(Movement.equipment_id == eq.id))
+        await db.delete(eq)
+        deleted += 1
+    await db.commit()
+    return deleted
 
 async def change_equipment_status(db: AsyncSession, eq_id: int, new_status: EquipmentStatus, user_id: int, comment: Optional[str] = None):
     eq = await get_equipment_by_id(db, eq_id)
@@ -108,7 +160,8 @@ async def change_equipment_status(db: AsyncSession, eq_id: int, new_status: Equi
     eq.current_status = new_status
     history = StatusHistory(equipment_id=eq.id, old_status=old_status, new_status=new_status, changed_by_user_id=user_id, comment=comment)
     db.add(history)
-    log = OperationLog(user_id=user_id, action="change_status", object_type="equipment", object_id=eq.id, details=f"Status changed from {old_status} to {new_status}")
+    old_status_label = old_status.value if old_status else "не задан"
+    log = OperationLog(user_id=user_id, action="change_status", object_type="equipment", object_id=eq.id, details=f"Статус изменён с «{old_status_label}» на «{new_status.value}»")
     db.add(log)
     await db.commit()
     return await get_equipment_by_id(db, eq_id), None
@@ -147,10 +200,28 @@ async def update_warehouse(db: AsyncSession, wh_id: int, updates: WarehouseUpdat
 
 async def delete_warehouse(db: AsyncSession, wh_id: int):
     wh = await get_warehouse_by_id(db, wh_id)
-    if wh:
-        await db.delete(wh)
-        await db.commit()
-    return wh
+    if not wh:
+        return None, "Warehouse not found"
+    equipment_count = (await db.execute(
+        select(func.count()).select_from(Equipment).where(Equipment.current_warehouse_id == wh_id)
+    )).scalar_one()
+    if equipment_count:
+        return None, f"Нельзя удалить: в этой аудитории/складе находится {equipment_count} ед. оборудования. Сначала переместите его."
+    await db.delete(wh)
+    await db.commit()
+    return wh, None
+
+async def delete_warehouses_batch(db: AsyncSession, wh_ids: List[int]):
+    deleted = 0
+    errors = []
+    for wh_id in wh_ids:
+        wh, error = await delete_warehouse(db, wh_id)
+        if error:
+            name = wh.name if wh else f"#{wh_id}"
+            errors.append(f"{name}: {error}")
+        else:
+            deleted += 1
+    return deleted, errors
 
 async def create_movement(db: AsyncSession, move: MovementCreate, user_id: int):
     eq = await get_equipment_by_id(db, move.equipment_id)
@@ -158,10 +229,13 @@ async def create_movement(db: AsyncSession, move: MovementCreate, user_id: int):
     if eq.current_warehouse_id == move.to_warehouse_id: return None, "Equipment already at this warehouse"
     from_wh_id = eq.current_warehouse_id
     if from_wh_id is None: return None, "Equipment has no current warehouse"
+    from_wh_name = eq.warehouse.name if eq.warehouse else str(from_wh_id)
+    to_wh = await get_warehouse_by_id(db, move.to_warehouse_id)
+    to_wh_name = to_wh.name if to_wh else str(move.to_warehouse_id)
     db_move = Movement(equipment_id=move.equipment_id, from_warehouse_id=from_wh_id, to_warehouse_id=move.to_warehouse_id, user_id=user_id, comment=move.comment)
     eq.current_warehouse_id = move.to_warehouse_id
     db.add(db_move)
-    log = OperationLog(user_id=user_id, action="move", object_type="equipment", object_id=eq.id, details=f"Moved from warehouse {from_wh_id} to {move.to_warehouse_id}")
+    log = OperationLog(user_id=user_id, action="move", object_type="equipment", object_id=eq.id, details=f"Перемещено из «{from_wh_name}» в «{to_wh_name}»")
     db.add(log)
     await db.commit()
     return await get_movement_by_id(db, db_move.id), None
@@ -188,6 +262,10 @@ async def create_batch_movement(db: AsyncSession, equipment_ids: List[int], to_w
     if missing_ids:
         return None, f"Equipment not found: {', '.join(map(str, missing_ids))}"
 
+    warehouse_ids = {equipment.current_warehouse_id for equipment in equipment_by_id.values() if equipment.current_warehouse_id}
+    warehouses_result = await db.execute(select(Warehouse).where(Warehouse.id.in_(warehouse_ids)))
+    warehouse_names = {wh.id: wh.name for wh in warehouses_result.scalars().all()}
+
     movements = []
     for equipment_id in dict.fromkeys(equipment_ids):
         equipment = equipment_by_id[equipment_id]
@@ -196,6 +274,7 @@ async def create_batch_movement(db: AsyncSession, equipment_ids: List[int], to_w
         if equipment.current_warehouse_id == to_warehouse_id:
             continue
         from_warehouse_id = equipment.current_warehouse_id
+        from_wh_name = warehouse_names.get(from_warehouse_id, str(from_warehouse_id))
         equipment.current_warehouse_id = to_warehouse_id
         movement = Movement(
             equipment_id=equipment.id,
@@ -210,7 +289,7 @@ async def create_batch_movement(db: AsyncSession, equipment_ids: List[int], to_w
             action="batch_move",
             object_type="equipment",
             object_id=equipment.id,
-            details=f"Batch moved from warehouse {from_warehouse_id} to {to_warehouse_id}",
+            details=f"Массово перемещено из «{from_wh_name}» в «{destination.name}»",
         ))
         movements.append(movement)
     await db.commit()
@@ -231,10 +310,11 @@ async def get_movements(db: AsyncSession, skip=0, limit=100, equipment_id=None, 
     result = await db.execute(query)
     return result.scalars().all()
 
-async def get_logs(db: AsyncSession, skip=0, limit=100, user_id=None, action=None):
+async def get_logs(db: AsyncSession, skip=0, limit=100, user_id=None, action=None, search=None):
     query = select(OperationLog).options(selectinload(OperationLog.user))
     if user_id: query = query.where(OperationLog.user_id == user_id)
     if action: query = query.where(OperationLog.action == action)
+    if search: query = query.where(OperationLog.details.ilike(f"%{search}%"))
     query = query.order_by(desc(OperationLog.timestamp)).offset(skip).limit(limit)
     result = await db.execute(query)
     return result.scalars().all()

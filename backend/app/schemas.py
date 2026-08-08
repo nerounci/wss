@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import Enum
 
 class UserRoleEnum(str, Enum):
+    OWNER = "owner"
     ADMIN = "admin"
     EMPLOYEE = "employee"
 
@@ -32,6 +33,13 @@ class UserRead(UserBase):
     id: int
     role: Optional[RoleRead] = None
     class Config: from_attributes = True
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    role_id: Optional[int] = None
+
+class PagePermissionUpdate(BaseModel):
+    allowed: bool
 
 class UserLogin(BaseModel):
     username: str

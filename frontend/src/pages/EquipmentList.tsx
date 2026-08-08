@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Table, Button, Input, Space, Tag, Select, Row, Col, Grid } from 'antd'
+import { Table, Button, Input, Space, Tag, Select, Row, Col, Grid, Popconfirm, message } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import type { ColumnsType } from 'antd/es/table'
 
 interface Equipment {
@@ -16,14 +17,25 @@ interface Equipment {
   warehouse?: { name: string }
 }
 
+interface Warehouse {
+  id: number
+  name: string
+}
+
 const EquipmentList: React.FC = () => {
   const [data, setData] = useState<Equipment[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined)
+  const [warehouseFilter, setWarehouseFilter] = useState<number | undefined>(undefined)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
+
+  useEffect(() => { api.get('/api/warehouses/').then(res => setWarehouses(res.data)) }, [])
 
   const fetchData = async () => {
     setLoading(true)
@@ -31,6 +43,7 @@ const EquipmentList: React.FC = () => {
       const params: any = {}
       if (search) params.search = search
       if (statusFilter) params.status = statusFilter
+      if (warehouseFilter) params.warehouse_id = warehouseFilter
       const res = await api.get('/api/equipment/', { params })
       setData(res.data)
     } finally {
@@ -38,7 +51,18 @@ const EquipmentList: React.FC = () => {
     }
   }
 
-  useEffect(() => { fetchData() }, [search, statusFilter])
+  useEffect(() => { fetchData() }, [search, statusFilter, warehouseFilter])
+
+  const handleBulkDelete = async () => {
+    try {
+      const res = await api.delete('/api/equipment/batch', { data: { ids: selectedIds } })
+      message.success(`Удалено: ${res.data.deleted}`)
+      setSelectedIds([])
+      fetchData()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Не удалось удалить выбранное')
+    }
+  }
 
   const columns: ColumnsType<Equipment> = [
     { title: 'QR-код', dataIndex: 'barcode', key: 'barcode', responsive: ['sm'] },
@@ -81,6 +105,14 @@ const EquipmentList: React.FC = () => {
           { value: 'На списание', label: 'На списание' },
         ]}
       />
+      <Select
+        placeholder="Фильтр по аудитории/складу"
+        style={{ width: isMobile ? '100%' : 220 }}
+        allowClear
+        value={warehouseFilter}
+        onChange={(val) => setWarehouseFilter(val)}
+        options={warehouses.map(w => ({ value: w.id, label: w.name }))}
+      />
     </Space>
   )
 
@@ -91,9 +123,16 @@ const EquipmentList: React.FC = () => {
           {filterContent}
         </Col>
         <Col xs={24} md={12} style={{ textAlign: isMobile ? 'left' : 'right', marginTop: isMobile ? 8 : 0 }}>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/equipment/new')}>
-            Добавить
-          </Button>
+          <Space>
+            {isAdmin && selectedIds.length > 0 && (
+              <Popconfirm title={`Удалить выбранные (${selectedIds.length})?`} onConfirm={handleBulkDelete} okText="Удалить" cancelText="Отмена">
+                <Button danger>Удалить выбранное ({selectedIds.length})</Button>
+              </Popconfirm>
+            )}
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/equipment/new')}>
+              Добавить
+            </Button>
+          </Space>
         </Col>
       </Row>
       <Table
@@ -103,6 +142,7 @@ const EquipmentList: React.FC = () => {
         loading={loading}
         scroll={{ x: true }}
         size={isMobile ? 'small' : 'middle'}
+        rowSelection={isAdmin ? { selectedRowKeys: selectedIds, onChange: keys => setSelectedIds(keys.map(Number)) } : undefined}
       />
     </div>
   )

@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.schemas import EquipmentCreate, EquipmentRead, EquipmentUpdate, EquipmentStatusEnum, StatusHistoryRead
-from app.crud import create_equipment, get_equipments, get_equipment_by_id, update_equipment, delete_equipment, change_equipment_status, get_status_history
+from app.crud import create_equipment, get_equipments, get_equipment_by_id, update_equipment, delete_equipment, delete_equipment_batch, change_equipment_status, get_status_history
 from app.auth import get_current_user, get_current_admin
 from app.models import User, EquipmentStatus
+
+class BatchDeleteRequest(BaseModel):
+    ids: List[int] = Field(min_length=1)
 
 router = APIRouter(prefix="/api/equipment", tags=["equipment"])
 
@@ -33,6 +37,11 @@ async def update_equipment_endpoint(eq_id: int, updates: EquipmentUpdate, db: As
     eq = await update_equipment(db, eq_id, updates, current_user.id)
     if not eq: raise HTTPException(status_code=404, detail="Not found")
     return eq
+
+@router.delete("/batch")
+async def delete_equipment_batch_endpoint(payload: BatchDeleteRequest, db: AsyncSession = Depends(get_db), current_user = Depends(get_current_admin)):
+    deleted = await delete_equipment_batch(db, payload.ids, current_user.id)
+    return {"deleted": deleted}
 
 @router.delete("/{eq_id}", status_code=204)
 async def delete_equipment_endpoint(eq_id: int, db: AsyncSession = Depends(get_db), current_user = Depends(get_current_admin)):

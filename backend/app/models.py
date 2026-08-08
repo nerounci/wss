@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as SAEnum, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum as SAEnum, Text, Boolean, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -6,6 +6,7 @@ import enum
 from app.database import Base
 
 class UserRole(str, enum.Enum):
+    OWNER = "owner"
     ADMIN = "admin"
     EMPLOYEE = "employee"
 
@@ -34,6 +35,16 @@ class User(Base):
     movements = relationship("Movement", back_populates="user")
     status_changes = relationship("StatusHistory", back_populates="changed_by")
     logs = relationship("OperationLog", back_populates="user")
+    page_permissions = relationship("PagePermission", back_populates="user", cascade="all, delete-orphan")
+
+class PagePermission(Base):
+    __tablename__ = "page_permissions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    page_key = Column(String(50), nullable=False)
+    allowed = Column(Boolean, nullable=False)
+    user = relationship("User", back_populates="page_permissions")
+    __table_args__ = (UniqueConstraint("user_id", "page_key", name="uq_user_page"),)
 
 class Warehouse(Base):
     __tablename__ = "warehouses"
@@ -81,8 +92,8 @@ class Movement(Base):
     __tablename__ = "movements"
     id = Column(Integer, primary_key=True, index=True)
     equipment_id = Column(Integer, ForeignKey("equipment.id"), nullable=False)
-    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
-    to_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
+    from_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
+    to_warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     comment = Column(Text)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())

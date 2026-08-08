@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
-import { Layout, Menu, Button, Drawer, Grid } from 'antd'
+import { Layout, Menu, Button, Drawer, Grid, Spin } from 'antd'
 import {
   DashboardOutlined,
   ToolOutlined,
@@ -14,7 +14,8 @@ import {
   ScanOutlined,
   LogoutOutlined,
   MenuOutlined,
-  TeamOutlined
+  TeamOutlined,
+  SettingOutlined
 } from '@ant-design/icons'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -34,39 +35,46 @@ import Scan from './pages/Scan'
 const { Header, Content } = Layout
 const { useBreakpoint } = Grid
 
+const MENU_CONFIG = [
+  { key: '/', page: 'dashboard', icon: <DashboardOutlined />, label: 'Дашборд' },
+  { key: '/equipment', page: 'equipment', icon: <ToolOutlined />, label: 'Оборудование' },
+  { key: '/technology', page: 'technology', icon: <DesktopOutlined />, label: 'Техника' },
+  { key: '/warehouses', page: 'warehouses', icon: <EnvironmentOutlined />, label: 'Склады и аудитории' },
+  { key: '/movements', page: 'movements', icon: <SwapOutlined />, label: 'Перемещения' },
+  { key: '/relocation', page: 'relocation', icon: <RetweetOutlined />, label: 'Перестановка' },
+  { key: '/scan', page: 'scan', icon: <ScanOutlined />, label: 'Сканер' },
+  { key: '/import', page: 'import', icon: <UploadOutlined />, label: 'Импорт Excel' },
+]
+
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth()
+  const { user, permissionsLoaded } = useAuth()
   if (!user) return <Navigate to="/login" replace />
+  if (!permissionsLoaded) return <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div>
   return <>{children}</>
 }
 
-const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAdmin } = useAuth()
-  if (!isAdmin) return <Navigate to="/" replace />
+const PageRoute: React.FC<{ page: string; children: React.ReactNode }> = ({ page, children }) => {
+  const { canView } = useAuth()
+  if (!canView(page)) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
 const AppLayout: React.FC = () => {
-  const { user, logout, isAdmin } = useAuth()
+  const { user, logout, canView } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const screens = useBreakpoint()
   const isMobile = !screens.md  // Ant Design md = 768px
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  const visibleItems = MENU_CONFIG.filter(item => canView(item.page)).map(({ key, icon, label }) => ({ key, icon, label }))
+  const adminGroupChildren = [
+    ...(canView('logs') ? [{ key: '/logs', icon: <FileTextOutlined />, label: 'Журнал' }] : []),
+    ...(canView('users') ? [{ key: '/users', icon: <TeamOutlined />, label: 'Пользователи' }] : []),
+  ]
   const menuItems = [
-    { key: '/', icon: <DashboardOutlined />, label: 'Дашборд' },
-    { key: '/equipment', icon: <ToolOutlined />, label: 'Оборудование' },
-    { key: '/technology', icon: <DesktopOutlined />, label: 'Техника' },
-    { key: '/warehouses', icon: <EnvironmentOutlined />, label: 'Склады и аудитории' },
-    { key: '/movements', icon: <SwapOutlined />, label: 'Перемещения' },
-    { key: '/relocation', icon: <RetweetOutlined />, label: 'Перестановка' },
-    { key: '/scan', icon: <ScanOutlined />, label: 'Сканер' },
-    ...(isAdmin ? [
-      { key: '/import', icon: <UploadOutlined />, label: 'Импорт Excel' },
-      { key: '/logs', icon: <FileTextOutlined />, label: 'Журнал' },
-      { key: '/users', icon: <TeamOutlined />, label: 'Пользователи' },
-    ] : []),
+    ...visibleItems,
+    ...(adminGroupChildren.length ? [{ key: 'admin-group', icon: <SettingOutlined />, label: 'Admin', children: adminGroupChildren }] : []),
   ]
 
   const handleMenuClick = (key: string) => {
@@ -138,18 +146,18 @@ const AppLayout: React.FC = () => {
         <Content style={{ margin: isMobile ? '8px' : '16px' }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/equipment" element={<EquipmentList />} />
-            <Route path="/equipment/new" element={<EquipmentCreate />} />
-            <Route path="/equipment/:id" element={<EquipmentDetail />} />
-            <Route path="/technology" element={<Technology />} />
-            <Route path="/warehouses" element={<WarehouseList />} />
-            <Route path="/warehouses/:id" element={<WarehouseDetail />} />
-            <Route path="/movements" element={<Movements />} />
-            <Route path="/relocation" element={<BatchRelocation />} />
-            <Route path="/scan" element={<Scan />} />
-            <Route path="/import" element={<AdminRoute><ImportXlsx /></AdminRoute>} />
-            <Route path="/logs" element={<AdminRoute><Logs /></AdminRoute>} />
-            <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
+            <Route path="/equipment" element={<PageRoute page="equipment"><EquipmentList /></PageRoute>} />
+            <Route path="/equipment/new" element={<PageRoute page="equipment"><EquipmentCreate /></PageRoute>} />
+            <Route path="/equipment/:id" element={<PageRoute page="equipment"><EquipmentDetail /></PageRoute>} />
+            <Route path="/technology" element={<PageRoute page="technology"><Technology /></PageRoute>} />
+            <Route path="/warehouses" element={<PageRoute page="warehouses"><WarehouseList /></PageRoute>} />
+            <Route path="/warehouses/:id" element={<PageRoute page="warehouses"><WarehouseDetail /></PageRoute>} />
+            <Route path="/movements" element={<PageRoute page="movements"><Movements /></PageRoute>} />
+            <Route path="/relocation" element={<PageRoute page="relocation"><BatchRelocation /></PageRoute>} />
+            <Route path="/scan" element={<PageRoute page="scan"><Scan /></PageRoute>} />
+            <Route path="/import" element={<PageRoute page="import"><ImportXlsx /></PageRoute>} />
+            <Route path="/logs" element={<PageRoute page="logs"><Logs /></PageRoute>} />
+            <Route path="/users" element={<PageRoute page="users"><Users /></PageRoute>} />
           </Routes>
         </Content>
       </Layout>

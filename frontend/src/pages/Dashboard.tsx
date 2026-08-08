@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Card, Col, Grid, List, Row, Statistic, Tag, Typography } from 'antd'
 import { EnvironmentOutlined, SwapOutlined, ToolOutlined, WarningOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
+import { ACTION_LABELS } from '../constants'
 
 const { useBreakpoint } = Grid
 
@@ -27,13 +28,6 @@ interface DashboardData {
   movement_count: number
   low_stock: LowStockEquipment[]
   recent_changes: RecentChange[]
-}
-
-const actionLabels: Record<string, string> = {
-  create: 'Добавление',
-  update: 'Изменение',
-  move: 'Перемещение',
-  change_status: 'Изменение статуса',
 }
 
 const Dashboard: React.FC = () => {
@@ -73,7 +67,7 @@ const Dashboard: React.FC = () => {
           <List dataSource={data.recent_changes} renderItem={item => (
             <List.Item>
               <List.Item.Meta
-                title={<><Tag>{actionLabels[item.action] || item.action}</Tag>{item.details || 'Без описания'}</>}
+                title={<><Tag>{ACTION_LABELS[item.action] || item.action}</Tag>{item.details || 'Без описания'}</>}
                 description={`${new Date(item.timestamp).toLocaleString()} · ${item.user?.full_name || item.user?.username || 'Система'}`}
               />
             </List.Item>
