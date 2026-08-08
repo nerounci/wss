@@ -12,14 +12,15 @@ router = APIRouter(prefix="/api/equipment", tags=["equipment"])
 
 @router.get("/", response_model=List[EquipmentRead])
 async def read_equipment(search: Optional[str] = None, barcode: Optional[str] = None, category: Optional[str] = None,
+                         equipment_type: Optional[str] = None, technical_only: bool = False,
                          status: Optional[EquipmentStatus] = None, warehouse_id: Optional[int] = None,
                          skip: int = 0, limit: int = 100,
                          db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return await get_equipments(db, skip=skip, limit=limit, search=search, barcode=barcode, category=category, status=status, warehouse_id=warehouse_id)
+    return await get_equipments(db, skip=skip, limit=limit, search=search, barcode=barcode, category=category, equipment_type=equipment_type, technical_only=technical_only, status=status, warehouse_id=warehouse_id)
 
 @router.post("/", response_model=EquipmentRead)
 async def new_equipment(equipment: EquipmentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return await create_equipment(db, equipment)
+    return await create_equipment(db, equipment, current_user.id)
 
 @router.get("/{eq_id}", response_model=EquipmentRead)
 async def get_equipment(eq_id: int, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -29,13 +30,13 @@ async def get_equipment(eq_id: int, db: AsyncSession = Depends(get_db), current_
 
 @router.put("/{eq_id}", response_model=EquipmentRead)
 async def update_equipment_endpoint(eq_id: int, updates: EquipmentUpdate, db: AsyncSession = Depends(get_db), current_user = Depends(get_current_admin)):
-    eq = await update_equipment(db, eq_id, updates)
+    eq = await update_equipment(db, eq_id, updates, current_user.id)
     if not eq: raise HTTPException(status_code=404, detail="Not found")
     return eq
 
 @router.delete("/{eq_id}", status_code=204)
 async def delete_equipment_endpoint(eq_id: int, db: AsyncSession = Depends(get_db), current_user = Depends(get_current_admin)):
-    await delete_equipment(db, eq_id)
+    await delete_equipment(db, eq_id, current_user.id)
     return {"ok": True}
 
 @router.put("/{eq_id}/status", response_model=EquipmentRead)

@@ -30,7 +30,7 @@ const Movements: React.FC = () => {
 
   const columns = [
     { title: 'Оборудование', dataIndex: ['equipment', 'name'], responsive: ['sm'] },
-    { title: 'Штрихкод', dataIndex: ['equipment', 'barcode'], responsive: ['md'] },
+    { title: 'QR-код', dataIndex: ['equipment', 'barcode'], responsive: ['md'] },
     { title: 'Откуда', dataIndex: ['from_warehouse', 'name'] },
     { title: 'Куда', dataIndex: ['to_warehouse', 'name'] },
     { title: 'Дата', dataIndex: 'timestamp', render: (t: string) => new Date(t).toLocaleString(), responsive: ['md'] },

@@ -26,14 +26,14 @@ const WarehouseDetail: React.FC = () => {
         <Descriptions.Item label="Адрес">{warehouse.address}</Descriptions.Item>
         <Descriptions.Item label="Описание">{warehouse.description}</Descriptions.Item>
       </Descriptions>
-      <Card title="Оборудование на складе" style={{ marginTop: 16 }}>
+      <Card title="Оборудование в этом месте" style={{ marginTop: 16 }}>
         <Table
           dataSource={equipment}
           rowKey="id"
           scroll={{ x: true }}
           size={isMobile ? 'small' : 'middle'}
           columns={[
-            { title: 'Штрихкод', dataIndex: 'barcode', responsive: ['sm'] },
+            { title: 'QR-код', dataIndex: 'barcode', responsive: ['sm'] },
             { title: 'Наименование', dataIndex: 'name' },
             { title: 'Статус', dataIndex: 'current_status' }
           ]}

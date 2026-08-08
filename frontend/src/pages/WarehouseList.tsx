@@ -72,7 +72,7 @@ const WarehouseList: React.FC = () => {
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); setModalVisible(true) }}>
-            Добавить склад
+            Добавить аудиторию / склад
           </Button>
         </Col>
       </Row>
@@ -85,13 +85,13 @@ const WarehouseList: React.FC = () => {
         size={isMobile ? 'small' : 'middle'}
       />
       <Modal
-        title={editing ? 'Редактировать склад' : 'Новый склад'}
+        title={editing ? 'Редактировать аудиторию / склад' : 'Новая аудитория / склад'}
         open={modalVisible}
         onOk={handleSave}
         onCancel={() => setModalVisible(false)}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="name" label="Название" rules={[{ required: true }]}>
+          <Form.Item name="name" label="Название аудитории или склада" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
           <Form.Item name="address" label="Адрес">

@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func, delete
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 import secrets
 
 from app.models import User, Role, Equipment, Warehouse, Movement, StatusHistory, OperationLog, EquipmentStatus
@@ -51,18 +52,24 @@ async def get_users(db: AsyncSession, skip=0, limit=100):
     )
     return result.scalars().all()
 
-async def create_equipment(db: AsyncSession, equipment: EquipmentCreate):
-    db_eq = Equipment(**equipment.model_dump())
+async def create_equipment(db: AsyncSession, equipment: EquipmentCreate, user_id: int):
+    equipment_data = equipment.model_dump()
+    if not equipment_data["barcode"]:
+        equipment_data["barcode"] = f"AUTO-{uuid4().hex[:12].upper()}"
+    db_eq = Equipment(**equipment_data)
     db.add(db_eq)
+    await db.flush()
+    db.add(OperationLog(user_id=user_id, action="create", object_type="equipment", object_id=db_eq.id, details=f"Created equipment: {db_eq.name}"))
     await db.commit()
-    await db.refresh(db_eq)
-    return db_eq
+    return await get_equipment_by_id(db, db_eq.id)
 
-async def get_equipments(db: AsyncSession, skip=0, limit=100, search=None, barcode=None, category=None, status=None, warehouse_id=None):
+async def get_equipments(db: AsyncSession, skip=0, limit=100, search=None, barcode=None, category=None, equipment_type=None, technical_only=False, status=None, warehouse_id=None):
     query = select(Equipment).options(selectinload(Equipment.warehouse))
     if search: query = query.where(Equipment.name.ilike(f"%{search}%"))
     if barcode: query = query.where(Equipment.barcode == barcode)
     if category: query = query.where(Equipment.category.ilike(f"%{category}%"))
+    if equipment_type: query = query.where(Equipment.equipment_type == equipment_type)
+    if technical_only: query = query.where(Equipment.equipment_type.is_not(None))
     if status: query = query.where(Equipment.current_status == status)
     if warehouse_id is not None: query = query.where(Equipment.current_warehouse_id == warehouse_id)
     query = query.offset(skip).limit(limit).order_by(Equipment.id)
@@ -75,18 +82,21 @@ async def get_equipment_by_id(db: AsyncSession, eq_id: int):
     )
     return result.scalar_one_or_none()
 
-async def update_equipment(db: AsyncSession, eq_id: int, updates: EquipmentUpdate):
+async def update_equipment(db: AsyncSession, eq_id: int, updates: EquipmentUpdate, user_id: int):
     eq = await get_equipment_by_id(db, eq_id)
     if not eq: return None
     for field, value in updates.model_dump(exclude_unset=True).items():
         setattr(eq, field, value)
+    db.add(OperationLog(user_id=user_id, action="update", object_type="equipment", object_id=eq.id, details=f"Updated equipment: {eq.name}"))
     await db.commit()
-    await db.refresh(eq)
-    return eq
+    return await get_equipment_by_id(db, eq_id)
 
-async def delete_equipment(db: AsyncSession, eq_id: int):
+async def delete_equipment(db: AsyncSession, eq_id: int, user_id: int):
     eq = await get_equipment_by_id(db, eq_id)
     if eq:
+        db.add(OperationLog(user_id=user_id, action="delete", object_type="equipment", object_id=eq.id, details=f"Deleted equipment: {eq.name}"))
+        await db.execute(delete(StatusHistory).where(StatusHistory.equipment_id == eq.id))
+        await db.execute(delete(Movement).where(Movement.equipment_id == eq.id))
         await db.delete(eq)
         await db.commit()
     return eq
@@ -101,8 +111,7 @@ async def change_equipment_status(db: AsyncSession, eq_id: int, new_status: Equi
     log = OperationLog(user_id=user_id, action="change_status", object_type="equipment", object_id=eq.id, details=f"Status changed from {old_status} to {new_status}")
     db.add(log)
     await db.commit()
-    await db.refresh(eq)
-    return eq, None
+    return await get_equipment_by_id(db, eq_id), None
 
 async def get_status_history(db: AsyncSession, eq_id: int):
     result = await db.execute(
@@ -155,12 +164,61 @@ async def create_movement(db: AsyncSession, move: MovementCreate, user_id: int):
     log = OperationLog(user_id=user_id, action="move", object_type="equipment", object_id=eq.id, details=f"Moved from warehouse {from_wh_id} to {move.to_warehouse_id}")
     db.add(log)
     await db.commit()
-    await db.refresh(db_move)
-    return db_move, None
+    return await get_movement_by_id(db, db_move.id), None
+
+async def get_movement_by_id(db: AsyncSession, move_id: int):
+    result = await db.execute(
+        select(Movement).where(Movement.id == move_id).options(
+            selectinload(Movement.equipment).selectinload(Equipment.warehouse),
+            selectinload(Movement.from_warehouse),
+            selectinload(Movement.to_warehouse),
+            selectinload(Movement.user),
+        )
+    )
+    return result.scalar_one_or_none()
+
+async def create_batch_movement(db: AsyncSession, equipment_ids: List[int], to_warehouse_id: int, comment: Optional[str], user_id: int):
+    destination = await get_warehouse_by_id(db, to_warehouse_id)
+    if not destination:
+        return None, "Destination warehouse not found"
+
+    result = await db.execute(select(Equipment).where(Equipment.id.in_(equipment_ids)))
+    equipment_by_id = {equipment.id: equipment for equipment in result.scalars().all()}
+    missing_ids = sorted(set(equipment_ids) - set(equipment_by_id))
+    if missing_ids:
+        return None, f"Equipment not found: {', '.join(map(str, missing_ids))}"
+
+    movements = []
+    for equipment_id in dict.fromkeys(equipment_ids):
+        equipment = equipment_by_id[equipment_id]
+        if equipment.current_warehouse_id is None:
+            return None, f"Equipment {equipment.name} has no current warehouse"
+        if equipment.current_warehouse_id == to_warehouse_id:
+            continue
+        from_warehouse_id = equipment.current_warehouse_id
+        equipment.current_warehouse_id = to_warehouse_id
+        movement = Movement(
+            equipment_id=equipment.id,
+            from_warehouse_id=from_warehouse_id,
+            to_warehouse_id=to_warehouse_id,
+            user_id=user_id,
+            comment=comment,
+        )
+        db.add(movement)
+        db.add(OperationLog(
+            user_id=user_id,
+            action="batch_move",
+            object_type="equipment",
+            object_id=equipment.id,
+            details=f"Batch moved from warehouse {from_warehouse_id} to {to_warehouse_id}",
+        ))
+        movements.append(movement)
+    await db.commit()
+    return len(movements), None
 
 async def get_movements(db: AsyncSession, skip=0, limit=100, equipment_id=None, user_id=None, start_date=None, end_date=None):
     query = select(Movement).options(
-        selectinload(Movement.equipment),
+        selectinload(Movement.equipment).selectinload(Equipment.warehouse),
         selectinload(Movement.from_warehouse),
         selectinload(Movement.to_warehouse),
         selectinload(Movement.user)
@@ -181,8 +239,36 @@ async def get_logs(db: AsyncSession, skip=0, limit=100, user_id=None, action=Non
     result = await db.execute(query)
     return result.scalars().all()
 
+async def get_dashboard_summary(db: AsyncSession):
+    equipment_count = (await db.execute(select(func.count()).select_from(Equipment))).scalar_one()
+    warehouse_count = (await db.execute(select(func.count()).select_from(Warehouse))).scalar_one()
+    movement_count = (await db.execute(select(func.count()).select_from(Movement))).scalar_one()
+    low_stock_result = await db.execute(
+        select(Equipment)
+        .where(Equipment.quantity <= Equipment.minimum_quantity)
+        .options(selectinload(Equipment.warehouse))
+        .order_by(Equipment.quantity, Equipment.name)
+    )
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    recent_changes_result = await db.execute(
+        select(OperationLog)
+        .where(OperationLog.timestamp >= week_ago)
+        .options(selectinload(OperationLog.user))
+        .order_by(desc(OperationLog.timestamp))
+        .limit(50)
+    )
+    return {
+        "equipment_count": equipment_count,
+        "warehouse_count": warehouse_count,
+        "movement_count": movement_count,
+        "low_stock": low_stock_result.scalars().all(),
+        "recent_changes": recent_changes_result.scalars().all(),
+    }
+
 async def get_warehouse_equipment(db: AsyncSession, wh_id: int):
     result = await db.execute(
-        select(Equipment).where(Equipment.current_warehouse_id == wh_id)
+        select(Equipment)
+        .where(Equipment.current_warehouse_id == wh_id)
+        .options(selectinload(Equipment.warehouse))
     )
     return result.scalars().all()

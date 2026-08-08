@@ -5,8 +5,11 @@ import { Layout, Menu, Button, Drawer, Grid } from 'antd'
 import {
   DashboardOutlined,
   ToolOutlined,
+  DesktopOutlined,
   EnvironmentOutlined,
   SwapOutlined,
+  RetweetOutlined,
+  UploadOutlined,
   FileTextOutlined,
   ScanOutlined,
   LogoutOutlined,
@@ -16,13 +19,16 @@ import {
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import EquipmentList from './pages/EquipmentList'
-import EquipmentDetail from './pages/EquipmentDetail'
 import EquipmentCreate from './pages/EquipmentCreate'
+import EquipmentDetail from './pages/EquipmentDetail'
+import Technology from './pages/Technology'
 import WarehouseList from './pages/WarehouseList'
 import WarehouseDetail from './pages/WarehouseDetail'
 import Movements from './pages/Movements'
+import BatchRelocation from './pages/BatchRelocation'
 import Logs from './pages/Logs'
 import Users from './pages/Users'
+import ImportXlsx from './pages/ImportXlsx'
 import Scan from './pages/Scan'
 
 const { Header, Content } = Layout
@@ -51,11 +57,16 @@ const AppLayout: React.FC = () => {
   const menuItems = [
     { key: '/', icon: <DashboardOutlined />, label: 'Дашборд' },
     { key: '/equipment', icon: <ToolOutlined />, label: 'Оборудование' },
-    { key: '/warehouses', icon: <EnvironmentOutlined />, label: 'Склады' },
+    { key: '/technology', icon: <DesktopOutlined />, label: 'Техника' },
+    { key: '/warehouses', icon: <EnvironmentOutlined />, label: 'Склады и аудитории' },
     { key: '/movements', icon: <SwapOutlined />, label: 'Перемещения' },
+    { key: '/relocation', icon: <RetweetOutlined />, label: 'Перестановка' },
     { key: '/scan', icon: <ScanOutlined />, label: 'Сканер' },
-    ...(isAdmin ? [{ key: '/logs', icon: <FileTextOutlined />, label: 'Журнал' }] : []),
-    ...(isAdmin ? [{ key: '/users', icon: <TeamOutlined />, label: 'Пользователи' }] : []),
+    ...(isAdmin ? [
+      { key: '/import', icon: <UploadOutlined />, label: 'Импорт Excel' },
+      { key: '/logs', icon: <FileTextOutlined />, label: 'Журнал' },
+      { key: '/users', icon: <TeamOutlined />, label: 'Пользователи' },
+    ] : []),
   ]
 
   const handleMenuClick = (key: string) => {
@@ -130,10 +141,13 @@ const AppLayout: React.FC = () => {
             <Route path="/equipment" element={<EquipmentList />} />
             <Route path="/equipment/new" element={<EquipmentCreate />} />
             <Route path="/equipment/:id" element={<EquipmentDetail />} />
+            <Route path="/technology" element={<Technology />} />
             <Route path="/warehouses" element={<WarehouseList />} />
             <Route path="/warehouses/:id" element={<WarehouseDetail />} />
             <Route path="/movements" element={<Movements />} />
+            <Route path="/relocation" element={<BatchRelocation />} />
             <Route path="/scan" element={<Scan />} />
+            <Route path="/import" element={<AdminRoute><ImportXlsx /></AdminRoute>} />
             <Route path="/logs" element={<AdminRoute><Logs /></AdminRoute>} />
             <Route path="/users" element={<AdminRoute><Users /></AdminRoute>} />
           </Routes>

@@ -13,7 +13,7 @@ class EquipmentStatusEnum(str, Enum):
     IN_REPAIR = "В ремонте"
     IN_WAREHOUSE = "На складе"
     ISSUED = "Выдан"
-    DECOMMISSIONED = "Списан"
+    DECOMMISSIONED = "На списание"
 
 class RoleRead(BaseModel):
     id: int
@@ -51,12 +51,16 @@ class WarehouseRead(WarehouseBase):
     class Config: from_attributes = True
 
 class EquipmentBase(BaseModel):
-    barcode: str
+    barcode: Optional[str] = None
     name: str
     category: Optional[str] = None
     serial_number: Optional[str] = None
     inventory_number: Optional[str] = None
     description: Optional[str] = None
+    equipment_type: Optional[str] = None
+    location_label: Optional[str] = None
+    quantity: int = Field(default=1, ge=0)
+    minimum_quantity: int = Field(default=0, ge=0)
     current_status: EquipmentStatusEnum = EquipmentStatusEnum.IN_WAREHOUSE
     current_warehouse_id: Optional[int] = None
 
@@ -69,6 +73,10 @@ class EquipmentUpdate(BaseModel):
     serial_number: Optional[str] = None
     inventory_number: Optional[str] = None
     description: Optional[str] = None
+    equipment_type: Optional[str] = None
+    location_label: Optional[str] = None
+    quantity: Optional[int] = Field(default=None, ge=0)
+    minimum_quantity: Optional[int] = Field(default=None, ge=0)
     current_status: Optional[EquipmentStatusEnum] = None
     current_warehouse_id: Optional[int] = None
 
@@ -91,6 +99,11 @@ class StatusHistoryRead(BaseModel):
 
 class MovementCreate(BaseModel):
     equipment_id: int
+    to_warehouse_id: int
+    comment: Optional[str] = None
+
+class MovementBatchCreate(BaseModel):
+    equipment_ids: List[int] = Field(min_length=1)
     to_warehouse_id: int
     comment: Optional[str] = None
 
@@ -118,6 +131,13 @@ class OperationLogRead(BaseModel):
     timestamp: datetime
     user: Optional[UserRead] = None
     class Config: from_attributes = True
+
+class DashboardSummary(BaseModel):
+    equipment_count: int
+    warehouse_count: int
+    movement_count: int
+    low_stock: List[EquipmentRead]
+    recent_changes: List[OperationLogRead]
 
 class Token(BaseModel):
     access_token: str

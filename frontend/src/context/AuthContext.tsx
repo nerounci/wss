@@ -24,27 +24,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'))
 
+  // Загрузка пользователя при монтировании
   useEffect(() => {
-    if (token) {
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      api.get('/api/users/me')
-        .then(res => setUser(res.data))
-        .catch(() => {
+    const loadUser = async () => {
+      if (token) {
+        try {
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+          const res = await api.get('/api/users/me')
+          setUser(res.data)
+        } catch (error) {
           localStorage.removeItem('token')
           setToken(null)
           setUser(null)
-        })
+          delete api.defaults.headers.common['Authorization']
+        }
+      }
     }
+    loadUser()
   }, [token])
 
+ 
   const login = async (username: string, password: string) => {
+    // 1. Отправляем запрос на получение токена
     const formData = new URLSearchParams()
     formData.append('username', username)
     formData.append('password', password)
+    
     const res = await api.post('/api/token', formData)
     const { access_token } = res.data
+    
+    // 2. Сохраняем токен
     localStorage.setItem('token', access_token)
+    api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`
+    
+    // 3. Устанавливаем токен в состояние (триггерит useEffect)
     setToken(access_token)
+    
+    // 4. ЖДЕМ загрузки пользователя
+    const userRes = await api.get('/api/users/me')
+    setUser(userRes.data)
+    
   }
 
   const logout = () => {

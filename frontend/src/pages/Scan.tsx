@@ -29,6 +29,7 @@ const Scan: React.FC = () => {
       if (res.data.length > 0) {
         setScannedEquipment(res.data[0])
         message.success(`Найдено: ${res.data[0].name}`)
+        navigate(`/equipment/${res.data[0].id}`)
       } else {
         setScannedEquipment(null)
         message.warning('Оборудование не найдено')
@@ -100,11 +101,11 @@ const Scan: React.FC = () => {
 
   return (
     <div>
-      <Card title="Сканирование штрихкода / QR-кода" style={{ maxWidth: 600, margin: '0 auto' }}>
+      <Card title="Сканирование QR-кода" style={{ maxWidth: 600, margin: '0 auto' }}>
         <Space direction="vertical" style={{ width: '100%' }}>
           <Input.Search
             ref={inputRef}
-            placeholder="Отсканируйте штрихкод (USB-сканер) или введите вручную"
+            placeholder="Отсканируйте QR-код или введите вручную"
             value={barcode}
             onChange={e => setBarcode(e.target.value)}
             onSearch={handleBarcodeSubmit}
@@ -129,7 +130,7 @@ const Scan: React.FC = () => {
         <Card title="Результат сканирования" style={{ marginTop: 16, maxWidth: 600, margin: '16px auto 0' }}>
           <Descriptions bordered column={1}>
             <Descriptions.Item label="Название">{scannedEquipment.name}</Descriptions.Item>
-            <Descriptions.Item label="Штрихкод">{scannedEquipment.barcode}</Descriptions.Item>
+            <Descriptions.Item label="QR-код">{scannedEquipment.barcode}</Descriptions.Item>
             <Descriptions.Item label="Категория">{scannedEquipment.category}</Descriptions.Item>
             <Descriptions.Item label="Статус">
               <Tag color={statusColor(scannedEquipment.current_status)}>

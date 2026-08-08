@@ -15,7 +15,7 @@ class EquipmentStatus(str, enum.Enum):
     IN_REPAIR = "В ремонте"
     IN_WAREHOUSE = "На складе"
     ISSUED = "Выдан"
-    DECOMMISSIONED = "Списан"
+    DECOMMISSIONED = "На списание"
 
 class Role(Base):
     __tablename__ = "roles"
@@ -54,6 +54,10 @@ class Equipment(Base):
     serial_number = Column(String(200))
     inventory_number = Column(String(200))
     description = Column(Text)
+    equipment_type = Column(String(50))
+    location_label = Column(String(200))
+    quantity = Column(Integer, nullable=False, default=1)
+    minimum_quantity = Column(Integer, nullable=False, default=0)
     current_status = Column(SAEnum(EquipmentStatus), default=EquipmentStatus.IN_WAREHOUSE)
     current_warehouse_id = Column(Integer, ForeignKey("warehouses.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())

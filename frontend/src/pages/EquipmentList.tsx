@@ -10,6 +10,8 @@ interface Equipment {
   barcode: string
   name: string
   category: string
+  quantity: number
+  minimum_quantity: number
   current_status: string
   warehouse?: { name: string }
 }
@@ -39,14 +41,15 @@ const EquipmentList: React.FC = () => {
   useEffect(() => { fetchData() }, [search, statusFilter])
 
   const columns: ColumnsType<Equipment> = [
-    { title: 'Штрихкод', dataIndex: 'barcode', key: 'barcode', responsive: ['sm'] },
+    { title: 'QR-код', dataIndex: 'barcode', key: 'barcode', responsive: ['sm'] },
     { title: 'Наименование', dataIndex: 'name', key: 'name', render: (text, record) => <a onClick={() => navigate(`/equipment/${record.id}`)}>{text}</a> },
     { title: 'Категория', dataIndex: 'category', key: 'category', responsive: ['md'] },
+    { title: 'Остаток', key: 'quantity', render: (_, record) => <Tag color={record.quantity <= record.minimum_quantity ? 'red' : 'green'}>{record.quantity}</Tag> },
     { title: 'Статус', dataIndex: 'current_status', key: 'status', render: (status: string) => {
       const color = status === 'Рабочий' ? 'green' : status === 'Выдан' ? 'blue' : status === 'На складе' ? 'cyan' : 'red'
       return <Tag color={color}>{status}</Tag>
     }},
-    { title: 'Склад', dataIndex: ['warehouse', 'name'], key: 'warehouse', responsive: ['sm'] },
+    { title: 'Помещение', dataIndex: ['warehouse', 'name'], key: 'warehouse', responsive: ['sm'] },
     {
       title: '',
       key: 'actions',
@@ -75,7 +78,7 @@ const EquipmentList: React.FC = () => {
           { value: 'В ремонте', label: 'В ремонте' },
           { value: 'На складе', label: 'На складе' },
           { value: 'Выдан', label: 'Выдан' },
-          { value: 'Списан', label: 'Списан' },
+          { value: 'На списание', label: 'На списание' },
         ]}
       />
     </Space>
