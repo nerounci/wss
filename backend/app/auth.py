@@ -12,6 +12,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.models import User, UserRole
 from app.schemas import TokenData
+from app.permissions import user_has_page_access
 
 settings = get_settings()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/token")
@@ -52,6 +53,18 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     return user
 
 async def get_current_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role.name != UserRole.ADMIN:
+    if current_user.role.name not in (UserRole.ADMIN, UserRole.OWNER):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return current_user
+
+async def get_current_owner(current_user: User = Depends(get_current_user)):
+    if current_user.role.name != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    return current_user
+
+def require_page(page_key: str):
+    async def dependency(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+        if not await user_has_page_access(db, current_user, page_key):
+            raise HTTPException(status_code=403, detail="Доступ к этому разделу закрыт для вашей учётной записи")
+        return current_user
+    return dependency

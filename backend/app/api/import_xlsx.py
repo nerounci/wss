@@ -7,11 +7,14 @@ from openpyxl import load_workbook
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_admin
+from app.auth import require_page
 from app.database import get_db
 from app.models import Equipment, EquipmentStatus, OperationLog, User, Warehouse
 
 router = APIRouter(prefix="/api/import", tags=["import"])
+
+MAX_FILE_SIZE = 100 * 1024 * 1024
+MAX_ROWS = 5000
 
 STATUS_MAP = {
     "РАБОЧИЙ": EquipmentStatus.WORKING,
@@ -97,15 +100,23 @@ async def duplicate_exists(db: AsyncSession, serial_number: str | None, inventor
 async def import_from_xlsx(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_admin),
+    current_user: User = Depends(require_page("import")),
 ):
     if not file.filename or not file.filename.lower().endswith(".xlsx"):
         raise HTTPException(400, "Файл должен быть в формате .xlsx")
 
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(400, f"Файл слишком большой (максимум {MAX_FILE_SIZE // (1024 * 1024)} МБ)")
+
     try:
-        workbook = load_workbook(io.BytesIO(await file.read()), data_only=True)
+        workbook = load_workbook(io.BytesIO(contents), read_only=True, data_only=True)
     except Exception as error:
-        raise HTTPException(400, f"Не удалось прочитать Excel-файл: {error}") from error
+        raise HTTPException(400, "Не удалось прочитать файл — проверьте, что это корректный .xlsx") from error
+
+    total_rows = sum(max((worksheet.max_row or 1) - 1, 0) for worksheet in workbook.worksheets)
+    if total_rows > MAX_ROWS:
+        raise HTTPException(400, f"Слишком много строк в файле (максимум {MAX_ROWS})")
 
     imported = 0
     skipped = 0
@@ -181,7 +192,7 @@ async def import_from_xlsx(
                     action="import",
                     object_type="equipment",
                     object_id=equipment.id,
-                    details=f"Imported from Excel: {equipment.name}",
+                    details=f"Импортировано из Excel: {equipment.name}",
                 ))
                 imported += 1
             except Exception as error:

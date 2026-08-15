@@ -9,8 +9,6 @@ services:
       POSTGRES_DB: wss_db
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
 
   backend:
     build: ./backend
@@ -23,6 +21,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://wss_user:wss_pass@db:5432/wss_db
       SECRET_KEY: supersecretkeychangeinproduction
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+      CORS_ORIGINS: http://localhost:3000
     ports:
       - "8000:8000"
 

@@ -1,0 +1,21 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Node / frontend build
+node_modules/
+dist/
+dist-ssr/
+
+# Env files
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Button, Table, Space, Modal, Input, Form, message, Row, Col, Grid } from 'antd'
+import { Button, Table, Space, Modal, Input, Form, message, Row, Col, Grid, Popconfirm } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { api } from '../api/client'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 
 interface Warehouse {
   id: number
@@ -16,8 +17,10 @@ const WarehouseList: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [editing, setEditing] = useState<Warehouse | null>(null)
+  const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const screens = Grid.useBreakpoint()
   const isMobile = !screens.md
 
@@ -46,9 +49,26 @@ const WarehouseList: React.FC = () => {
   }
 
   const handleDelete = async (id: number) => {
-    await api.delete(`/api/warehouses/${id}`)
-    message.success('Удалён')
-    fetch()
+    try {
+      await api.delete(`/api/warehouses/${id}`)
+      message.success('Удалён')
+      fetch()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Не удалось удалить')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      const res = await api.delete('/api/warehouses/batch', { data: { ids: selectedIds } })
+      const { deleted, errors } = res.data
+      if (deleted) message.success(`Удалено: ${deleted}`)
+      if (errors?.length) errors.forEach((e: string) => message.error(e))
+      setSelectedIds([])
+      fetch()
+    } catch (err: any) {
+      message.error(err.response?.data?.detail || 'Не удалось удалить выбранное')
+    }
   }
 
   const columns = [
@@ -60,7 +80,7 @@ const WarehouseList: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Warehouse) => (
         <Space>
-          <Button type="link" onClick={() => { setEditing(record); form.setFieldsValue(record); setModalVisible(true) }}>Ред.</Button>
+          <Button type="text" onClick={() => { setEditing(record); form.setFieldsValue(record); setModalVisible(true) }} title="Редактировать">🖉</Button>
           <Button type="link" danger onClick={() => handleDelete(record.id)}>Удалить</Button>
         </Space>
       )
@@ -71,9 +91,16 @@ const WarehouseList: React.FC = () => {
     <div>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); setModalVisible(true) }}>
-            Добавить аудиторию / склад
-          </Button>
+          <Space>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditing(null); form.resetFields(); setModalVisible(true) }}>
+              Добавить аудиторию / склад
+            </Button>
+            {isAdmin && selectedIds.length > 0 && (
+              <Popconfirm title={`Удалить выбранные (${selectedIds.length})?`} onConfirm={handleBulkDelete} okText="Удалить" cancelText="Отмена">
+                <Button danger>Удалить выбранное ({selectedIds.length})</Button>
+              </Popconfirm>
+            )}
+          </Space>
         </Col>
       </Row>
       <Table
@@ -83,6 +110,7 @@ const WarehouseList: React.FC = () => {
         loading={loading}
         scroll={{ x: true }}
         size={isMobile ? 'small' : 'middle'}
+        rowSelection={isAdmin ? { selectedRowKeys: selectedIds, onChange: keys => setSelectedIds(keys.map(Number)) } : undefined}
       />
       <Modal
         title={editing ? 'Редактировать аудиторию / склад' : 'Новая аудитория / склад'}
